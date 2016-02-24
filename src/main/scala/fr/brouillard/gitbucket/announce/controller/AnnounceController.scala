@@ -10,7 +10,6 @@ import org.apache.commons.mail.{DefaultAuthenticator, HtmlEmail}
 import io.github.gitbucket.markedj.Marked
 import io.github.gitbucket.markedj.Options
 import org.slf4j.LoggerFactory
-
 import gitbucket.core.model.{GroupMember, Account}
 import gitbucket.core.model.Profile._
 import gitbucket.core.util.{StringUtil, LDAPUtil}
@@ -18,8 +17,8 @@ import gitbucket.core.service.SystemSettingsService.SystemSettings
 import profile.simple._
 import StringUtil._
 import org.slf4j.LoggerFactory
-// TODO Why is direct import required?
 import gitbucket.core.model.Profile.dateColumnType
+import javax.mail.SendFailedException
 
 class AnnounceController extends AnnounceControllerBase
 with AdminAuthenticator
@@ -86,6 +85,7 @@ trait AnnounceControllerBase extends ControllerBase with AccountService {
       }
       email.setCharset("UTF-8")
       email.setSubject(form.subject)
+      email.setSendPartial(true);
 
       val opts = new Options();
       opts.setSanitize(true);
@@ -107,7 +107,16 @@ trait AnnounceControllerBase extends ControllerBase with AccountService {
         mailto.foreach(mailAddress => email.addBcc(mailAddress))
       }
 
-      email.send()
+      try {
+    	  email.send()
+      } catch {
+        case t:  SendFailedException => {
+          logger.info("found {} invalid email address while sending notification", t.getInvalidAddresses().length)
+          for (ia <- t.getInvalidAddresses()) {
+            logger.debug("invalid email address: {}", ia.toString())
+          }
+        }
+      }
       flash += "info" -> "Announce has been sent."
     } else {
       flash += "info" -> "Announce cannot be sent, verify SMTP settings"
