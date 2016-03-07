@@ -109,6 +109,7 @@ trait AnnounceControllerBase extends ControllerBase with AccountService {
 
       try {
     	  email.send()
+          flash += "info" -> "Announce has been sent."
       } catch {
         case t:  EmailException => {
           t.getCause match {
@@ -124,17 +125,19 @@ trait AnnounceControllerBase extends ControllerBase with AccountService {
             			logger.debug("email not sent to: {}", ua.toString())
             		}
             	}
+                flash += "info" -> "Announce has been sent."
             }
             case _ => {
             	logger.info("failure sending email", t)
+                flash += "info" -> "Announce cannot be sent, verify log errors."
             }
           }
         }
         case e: Exception => {
           logger.info("unexpected exception while sending email", e)
+          flash += "info" -> "Announce cannot be sent, verify log errors."
         }
       }
-      flash += "info" -> "Announce has been sent."
     } else {
       flash += "info" -> "Announce cannot be sent, verify SMTP settings"
     }
