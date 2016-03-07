@@ -6,11 +6,10 @@ import gitbucket.core.service.{AccountService, SystemSettingsService}
 import gitbucket.core.servlet.Database
 import gitbucket.core.util.AdminAuthenticator
 import io.github.gitbucket.scalatra.forms._
-import org.apache.commons.mail.{DefaultAuthenticator, HtmlEmail}
+import org.apache.commons.mail.{DefaultAuthenticator, HtmlEmail, EmailException}
 import io.github.gitbucket.markedj.Marked
 import io.github.gitbucket.markedj.Options
 import org.slf4j.LoggerFactory
-
 import gitbucket.core.model.{GroupMember, Account}
 import gitbucket.core.model.Profile._
 import gitbucket.core.util.{StringUtil, LDAPUtil}
@@ -18,8 +17,8 @@ import gitbucket.core.service.SystemSettingsService.SystemSettings
 import profile.simple._
 import StringUtil._
 import org.slf4j.LoggerFactory
-// TODO Why is direct import required?
 import gitbucket.core.model.Profile.dateColumnType
+import javax.mail.SendFailedException
 
 class AnnounceController extends AnnounceControllerBase
 with AdminAuthenticator
@@ -86,6 +85,7 @@ trait AnnounceControllerBase extends ControllerBase with AccountService {
       }
       email.setCharset("UTF-8")
       email.setSubject(form.subject)
+      email.setSendPartial(true);
 
       val opts = new Options();
       opts.setSanitize(true);
@@ -107,8 +107,37 @@ trait AnnounceControllerBase extends ControllerBase with AccountService {
         mailto.foreach(mailAddress => email.addBcc(mailAddress))
       }
 
-      email.send()
-      flash += "info" -> "Announce has been sent."
+      try {
+    	  email.send()
+          flash += "info" -> "Announce has been sent."
+      } catch {
+        case t:  EmailException => {
+          t.getCause match {
+            case ex: SendFailedException => {
+            	logger.error("found invalid email address while sending notification", ex)
+            	if (ex.getInvalidAddresses() != null) {
+            		for (ia <- ex.getInvalidAddresses()) {
+            			logger.error("invalid email address: {}", ia.toString())
+            		}
+            	}
+            	if (ex.getValidUnsentAddresses() != null) {
+            		for (ua <- ex.getValidUnsentAddresses()) {
+            			logger.error("email not sent to: {}", ua.toString())
+            		}
+            	}
+                flash += "info" -> "Announce has been sent."
+            }
+            case _ => {
+            	logger.error("failure sending email", t)
+                flash += "info" -> "Announce cannot be sent, verify log errors."
+            }
+          }
+        }
+        case e: Exception => {
+          logger.error("unexpected exception while sending email", e)
+          flash += "info" -> "Announce cannot be sent, verify log errors."
+        }
+      }
     } else {
       flash += "info" -> "Announce cannot be sent, verify SMTP settings"
     }
