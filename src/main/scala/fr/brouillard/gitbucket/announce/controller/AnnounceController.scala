@@ -114,27 +114,27 @@ trait AnnounceControllerBase extends ControllerBase with AccountService {
         case t:  EmailException => {
           t.getCause match {
             case ex: SendFailedException => {
-            	logger.info("found invalid email address while sending notification", ex)
+            	logger.error("found invalid email address while sending notification", ex)
             	if (ex.getInvalidAddresses() != null) {
             		for (ia <- ex.getInvalidAddresses()) {
-            			logger.debug("invalid email address: {}", ia.toString())
+            			logger.error("invalid email address: {}", ia.toString())
             		}
             	}
             	if (ex.getValidUnsentAddresses() != null) {
             		for (ua <- ex.getValidUnsentAddresses()) {
-            			logger.debug("email not sent to: {}", ua.toString())
+            			logger.error("email not sent to: {}", ua.toString())
             		}
             	}
                 flash += "info" -> "Announce has been sent."
             }
             case _ => {
-            	logger.info("failure sending email", t)
+            	logger.error("failure sending email", t)
                 flash += "info" -> "Announce cannot be sent, verify log errors."
             }
           }
         }
         case e: Exception => {
-          logger.info("unexpected exception while sending email", e)
+          logger.error("unexpected exception while sending email", e)
           flash += "info" -> "Announce cannot be sent, verify log errors."
         }
       }
